@@ -111,7 +111,7 @@ class _ProfilePageState extends State<ProfilePage> {
       home: Scaffold(
         appBar: AppBar(
           title: Text('Profile Page'), // AppBar title
-          backgroundColor: Colors.teal, // AppBar color
+          backgroundColor: Colors.red, // AppBar color
         ),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
