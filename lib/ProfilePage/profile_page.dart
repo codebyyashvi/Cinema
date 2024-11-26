@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart'; // Correctly import the image picker
-
+import 'dart:io';
 void main() {
   runApp(ProfilePage());
 }
@@ -71,10 +71,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
-        user.profilePicture = pickedFile.path;
+        user.profilePicture = pickedFile.path; // Save the file path
       });
     }
   }
+
 
   void _removeProfilePicture() {
     setState(() {
@@ -85,7 +86,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void _saveUserInfo() {
     // Logic to save user data to Firebase or local storage can be added here
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Profile updated successfully!')),
+      const SnackBar(content: Text('Profile updated successfully!')),
     );
   }
 
@@ -122,8 +123,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       GestureDetector(
                         onTap: _updateProfilePicture,
                         child: CircleAvatar(
-                          radius: 50, // Avatar size
-                          backgroundImage: NetworkImage(user.profilePicture),
+                          radius: 50,
+                          backgroundImage: user.profilePicture.startsWith('http')
+                              ? NetworkImage(user.profilePicture)
+                              : FileImage(File(user.profilePicture)) as ImageProvider,
                         ),
                       ),
                       SizedBox(width: 16), // Space between avatar and form

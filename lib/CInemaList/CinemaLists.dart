@@ -1,116 +1,101 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:cinema/main.dart';
 import 'package:cinema/CinemaHall/CinemaHall.dart';
 
-void main() => runApp(MovieTicketApp());
+class Cinema {
+  final String name;
+  final double latitude;
+  final double longitude;
 
-class MovieTicketApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Movie Ticket Booking',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: CinemaListPage(), // Changed to CinemaListPage
+  Cinema({
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  // Factory method to create a Cinema object from a JSON element
+  factory Cinema.fromJson(Map<String, dynamic> json) {
+    return Cinema(
+      name: json['tags']?['name'] ?? 'Unnamed Cinema',
+      latitude: json['lat'],
+      longitude: json['lon'],
     );
   }
 }
 
-// Cinema Class
-class Cinema {
-  final String name;
-  final String posterUrl;
-  final int likes;
-  final int dislikes;
-  final String distance;
-  final double rating;
-
-  Cinema({
-    required this.name,
-    required this.posterUrl,
-    required this.likes,
-    required this.dislikes,
-    required this.distance,
-    required this.rating,
-  }); // Constructor
-}
-
 class CinemaListPage extends StatefulWidget {
+  final Movie? movie; // Make the movie parameter optional.
+
+  CinemaListPage({this.movie}); // Constructor
+
   @override
   _CinemaListPageState createState() => _CinemaListPageState();
 }
 
 class _CinemaListPageState extends State<CinemaListPage> {
-  List<Cinema> cinemaList = [
-    Cinema(
-      name: 'Cinema Hall 1',
-      posterUrl: 'https://thumbs.dreamstime.com/b/cinema-hall-11557048.jpg',
-      likes: 123,
-      dislikes: 4,
-      distance: '2 km',
-      rating: 4.5,
-    ),
-    Cinema(
-      name: 'Cinema Hall 2',
-      posterUrl:
-      'https://thumbs.dreamstime.com/b/modern-cinema-hall-big-42813975.jpg',
-      likes: 98,
-      dislikes: 10,
-      distance: '5 km',
-      rating: 4.0,
-    ),
-    Cinema(
-      name: 'Cinema Hall 3',
-      posterUrl:
-      'https://i.pinimg.com/originals/d3/10/a7/d310a754ddcab75a00adf9e1aefa196c.jpg',
-      likes: 90,
-      dislikes: 50,
-      distance: '8 km',
-      rating: 3.8,
-    ),
-    Cinema(
-      name: 'Cinema Hall 4',
-      posterUrl: 'https://shopee.com.my/blog/wp-content/uploads/2022/09/48.jpg',
-      likes: 70,
-      dislikes: 5,
-      distance: '10 km',
-      rating: 4.5,
-    ),
-    Cinema(
-      name: 'Cinema Hall 5',
-      posterUrl:
-      'https://i.pinimg.com/originals/d3/10/a7/d310a754ddcab75a00adf9e1aefa196c.jpg',
-      likes: 90,
-      dislikes: 50,
-      distance: '8 km',
-      rating: 3.8,
-    ),
-    Cinema(
-      name: 'Cinema Hall 6',
-      posterUrl: 'https://shopee.com.my/blog/wp-content/uploads/2022/09/48.jpg',
-      likes: 70,
-      dislikes: 5,
-      distance: '10 km',
-      rating: 4.5,
-    )
-  ];
+  List<Cinema> cinemaList = [];
+  TextEditingController locationController = TextEditingController();
+  bool isLoading = false;
 
-  // Sort criteria state
-  String _sortCriteria = 'rating';
-
-  void _sortCinemaList() {
+  Future<void> fetchCoordinatesAndCinemas(String location) async {
     setState(() {
-      if (_sortCriteria == 'rating') {
-        cinemaList.sort((a, b) => b.rating.compareTo(a.rating));
-      } else if (_sortCriteria == 'distance') {
-        cinemaList.sort((a, b) {
-          double distanceA = double.parse(a.distance.split(' ')[0]);
-          double distanceB = double.parse(b.distance.split(' ')[0]);
-          return distanceA.compareTo(distanceB);
-        });
+      isLoading = true;
+    });
+
+    try {
+      final geocodingUrl =
+          'https://nominatim.openstreetmap.org/search?q=$location&format=json&limit=1';
+      final geocodingResponse = await http.get(Uri.parse(geocodingUrl));
+
+      if (geocodingResponse.statusCode == 200) {
+        final geocodingData = json.decode(geocodingResponse.body);
+
+        if (geocodingData.isNotEmpty) {
+          final lat = double.parse(geocodingData[0]['lat']);
+          final lon = double.parse(geocodingData[0]['lon']);
+          final radius = 0.1; // ~10km radius
+          final south = lat - radius;
+          final north = lat + radius;
+          final west = lon - radius;
+          final east = lon + radius;
+
+          final overpassUrl = 'https://overpass-api.de/api/interpreter';
+          final query = '''
+            [out:json];
+            node["amenity"="cinema"]($south,$west,$north,$east);
+            out body;
+          ''';
+
+          final overpassResponse = await http.post(
+            Uri.parse(overpassUrl),
+            body: {'data': query},
+          );
+
+          if (overpassResponse.statusCode == 200) {
+            final overpassData = json.decode(overpassResponse.body);
+            final elements = overpassData['elements'] as List;
+
+            setState(() {
+              cinemaList = elements.map((cinema) => Cinema.fromJson(cinema)).toList();
+            });
+          } else {
+            print('Error fetching cinemas: ${overpassResponse.statusCode}');
+          }
+
+        } else {
+          print('Location not found.');
+        }
+      } else {
+        print('Error fetching coordinates: ${geocodingResponse.statusCode}');
       }
+    } catch (e) {
+      print('Error: $e');
+    }
+
+    setState(() {
+      isLoading = false;
     });
   }
 
@@ -119,174 +104,155 @@ class _CinemaListPageState extends State<CinemaListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nearby Cinema Halls'),
+        backgroundColor: Colors.red, // Colorful AppBar
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              setState(() {
-                _sortCriteria = value;
-                _sortCinemaList();
-              });
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.white),
+            onPressed: () {
+              if (locationController.text.isNotEmpty) {
+                fetchCoordinatesAndCinemas(locationController.text);
+              }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'distance',
-                child: Text('Sort by Distance'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'rating',
-                child: Text('Sort by Rating'),
-              ),
-            ],
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            height: MediaQuery.of(context).size.height * 0.3,
-            width: double.infinity,
-            margin: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: const Color(0xfff073fb),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.pinkAccent.withOpacity(0.5),
-                  spreadRadius: 2,
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Image.network(
-                    'https://images.ottplay.com/images/big/stree-2-new-poster-1721216275.jpeg', // Updated poster link
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    color: const Color(0x8a93fc4c),
-                    padding: const EdgeInsets.all(8),
-                    child: const Text(
-                      'Featured Movie Name',
-                      style: TextStyle(
-                        color: Color(0xff1e1f1d),
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Movie Poster Section with improved styling
+            if (widget.movie != null) ...[
+              Container(
+                height: 250,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          // List of cinema halls
-          Expanded(
-            child: ListView.builder(
-              itemCount: cinemaList.length,
-              itemBuilder: (context, index) {
-                final cinema = cinemaList[index];
-                return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Cinemahall(
-                            Platinum: 40,
-                            Gold: 20,
-                            Silver: 20,
-                            PlatinumPrize: 500,
-                            GoldPrize: 250,
-                            SilverPrize: 125,
-                          ),
-                        ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    widget.movie!.posterUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        'assets/placeholder.png', // Correct usage of a placeholder
+                        fit: BoxFit.cover,
                       );
                     },
-                child: Card(
-                    margin: const EdgeInsets.all(10),
-                    elevation: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          height: MediaQuery.of(context).size.height * 0.09,
-                          decoration: BoxDecoration(
-                            image: DecorationImage(
-                              image: NetworkImage(cinema.posterUrl),
-                              fit: BoxFit.cover,
-                            ),
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(8)),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                cinema.name,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.thumb_up,
-                                          size: 16, color: Colors.green),
-                                      const SizedBox(width: 4),
-                                      Text('${cinema.likes}'),
-                                      const SizedBox(width: 16),
-                                      const Icon(Icons.thumb_down,
-                                          size: 16, color: Colors.red),
-                                      const SizedBox(width: 4),
-                                      Text('${cinema.dislikes}'),
-                                    ],
-                                  ),
-                                  // Rating with Distance
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        'Rating: ${cinema.rating}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.location_on,
-                                              size: 16, color: Colors.blue),
-                                          const SizedBox(width: 4),
-                                          Text(cinema.distance),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                );
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.movie!.title,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // Search Bar with colorful background
+            TextField(
+              controller: locationController,
+              decoration: InputDecoration(
+                hintText: 'Enter a location',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.white, // Colorful background
+                prefixIcon: const Icon(Icons.search, color: Colors.white),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onSubmitted: (value) {
+                fetchCoordinatesAndCinemas(value);
               },
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+
+            // Loading indicator or Cinema list
+            isLoading
+                ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple), // Colorful loading spinner
+              ),
+            )
+                : Expanded(
+              child: cinemaList.isEmpty
+                  ? const Center(
+                child: Text(
+                  'No cinemas found. Try a different location.',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              )
+                  : ListView.builder(
+                itemCount: cinemaList.length,
+                itemBuilder: (context, index) {
+                  final cinema = cinemaList[index];
+                  return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => Cinemahall(
+                              Platinum: 40,
+                              Gold: 20,
+                              Silver: 20,
+                              PlatinumPrize: 500,
+                              GoldPrize: 250,
+                              SilverPrize: 125,
+                            ),
+                          ),
+                        );
+                      },
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    elevation: 5,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    color: Colors.blueAccent, // Colorful background for cards
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 16),
+                      title: Text(
+                        cinema.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white, // White text on colorful background
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Coordinates: (${cinema.latitude}, ${cinema.longitude})',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70, // Light white text
+                        ),
+                      ),
+                      onTap: () {
+                        // Handle cinema details navigation if required
+                      },
+                    ),
+                  ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
