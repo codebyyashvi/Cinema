@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cinema/LoginPage/Auth.dart'; // Ensure this is the correct path to your `Auth` class
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -10,6 +10,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   String? errorMessage = '';
   bool isLogin = true;
 
@@ -19,10 +22,13 @@ class _LoginPageState extends State<LoginPage> {
   // Sign in method
   Future<void> signInWithEmailAndPassword() async {
     try {
-      await Auth().signInWithEmailAndPassword(
-        email: _controllerEmail.text,
-        password: _controllerPassword.text,
+      await _auth.signInWithEmailAndPassword(
+        email: _controllerEmail.text.trim(),
+        password: _controllerPassword.text.trim(),
       );
+
+      // Navigate to profile page
+      Navigator.pushReplacementNamed(context, '/profile');
     } on FirebaseAuthException catch (e) {
       setState(() {
         errorMessage = e.message;
@@ -33,10 +39,25 @@ class _LoginPageState extends State<LoginPage> {
   // Register method
   Future<void> createUserWithEmailAndPassword() async {
     try {
-      await Auth().createUserWithEmailAndPassword(
-        email: _controllerEmail.text,
-        password: _controllerPassword.text,
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: _controllerEmail.text.trim(),
+        password: _controllerPassword.text.trim(),
       );
+
+      // Create empty Firestore document for user details
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'name': '',
+        'phoneNumber': '',
+        'address': '',
+        'city': '',
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registration successful!')),
+      );
+
+      // Navigate to profile page
+      Navigator.pushReplacementNamed(context, '/profile');
     } on FirebaseAuthException catch (e) {
       setState(() {
         errorMessage = e.message;
@@ -44,55 +65,11 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // Title widget
-  Widget _title() {
-    return const Text('CineLogin');
-  }
-
-  // Entry field widget
-  Widget _entryField(String title, TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: title,
-      ),
-    );
-  }
-
-  // Error message widget
-  Widget _errorMessage() {
-    return Text(
-      errorMessage == '' ? '' : 'Error: $errorMessage',
-      style: const TextStyle(color: Colors.red),
-    );
-  }
-
-  // Submit button widget
-  Widget _submitButton() {
-    return ElevatedButton(
-      onPressed:
-          isLogin ? signInWithEmailAndPassword : createUserWithEmailAndPassword,
-      child: Text(isLogin ? 'Login' : 'Register'),
-    );
-  }
-
-  // Switch between login and register
-  Widget _loginOrRegisterButton() {
-    return TextButton(
-      onPressed: () {
-        setState(() {
-          isLogin = !isLogin;
-        });
-      },
-      child: Text(isLogin ? 'Register instead' : 'Login instead'),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: _title(),
+        title: const Text('CineLogin'),
       ),
       body: Container(
         height: double.infinity,
@@ -102,15 +79,35 @@ class _LoginPageState extends State<LoginPage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            _entryField('Email', _controllerEmail),
+            TextField(
+              controller: _controllerEmail,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
             const SizedBox(height: 10),
-            _entryField('Password', _controllerPassword),
+            TextField(
+              controller: _controllerPassword,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Password'),
+            ),
             const SizedBox(height: 10),
-            _errorMessage(),
+            Text(
+              errorMessage == '' ? '' : 'Error: $errorMessage',
+              style: const TextStyle(color: Colors.red),
+            ),
             const SizedBox(height: 10),
-            _submitButton(),
+            ElevatedButton(
+              onPressed: isLogin ? signInWithEmailAndPassword : createUserWithEmailAndPassword,
+              child: Text(isLogin ? 'Login' : 'Register'),
+            ),
             const SizedBox(height: 10),
-            _loginOrRegisterButton(),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  isLogin = !isLogin;
+                });
+              },
+              child: Text(isLogin ? 'Register instead' : 'Login instead'),
+            ),
           ],
         ),
       ),
