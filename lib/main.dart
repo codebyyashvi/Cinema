@@ -49,7 +49,8 @@ class MovieService {
   final String fanartBaseUrl = 'https://webservice.fanart.tv/v3/movies';
   final String traktApiKey =
       '5f49d6f4a4fe874f7c43bca412a6956f7e9497ecbf18c18cc9700bea6f0a20c8'; // Replace with your Trakt API key
-  final String fanartApiKey = '2004d4c42bb45cdb35f593993a248beb'; // Replace with your Fanart API key
+  final String fanartApiKey =
+      '2004d4c42bb45cdb35f593993a248beb'; // Replace with your Fanart API key
 
   Future<List<Movie>> fetchMovies() async {
     final response = await http.get(
@@ -83,15 +84,17 @@ class MovieService {
     }
 
     // Poster fetching
-    String posterUrl = 'assets/placeholder.png';
+    String posterUrl = 'assets/images/placeholder.png';
     final fanartResponse = await http.get(
-      Uri.parse('$fanartBaseUrl/${movieData['movie']['ids']['tmdb']}?api_key=$fanartApiKey'),
+      Uri.parse(
+          '$fanartBaseUrl/${movieData['movie']['ids']['tmdb']}?api_key=$fanartApiKey'),
     );
     if (fanartResponse.statusCode == 200) {
       final fanartData = json.decode(fanartResponse.body);
-      posterUrl = (fanartData['movieposter'] != null && fanartData['movieposter'].isNotEmpty)
+      posterUrl = (fanartData['movieposter'] != null &&
+              fanartData['movieposter'].isNotEmpty)
           ? fanartData['movieposter'][0]['url']
-          : 'assets/placeholder.png';
+          : 'assets/images/placeholder.png';
     }
 
     return Movie(
@@ -147,8 +150,9 @@ class _HomePageState extends State<HomePage> {
     try {
       await Auth().signOut();
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => WidgetTree()), // Navigate to login page
-            (Route<dynamic> route) => false,
+        MaterialPageRoute(
+            builder: (context) => WidgetTree()), // Navigate to login page
+        (Route<dynamic> route) => false,
       );
     } catch (e) {
       print('Sign-out error: $e');
@@ -190,18 +194,18 @@ class _HomePageState extends State<HomePage> {
         child: isLoading
             ? Center(child: CircularProgressIndicator())
             : movies.isEmpty
-            ? Center(
-          child: Text(
-            'No trending movies available.',
-            style: TextStyle(fontSize: 18),
-          ),
-        )
-            : ListView.builder(
-          itemCount: movies.length,
-          itemBuilder: (context, index) {
-            return MovieCard(movie: movies[index]);
-          },
-        ),
+                ? Center(
+                    child: Text(
+                      'No trending movies available.',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: movies.length,
+                    itemBuilder: (context, index) {
+                      return MovieCard(movie: movies[index]);
+                    },
+                  ),
       ),
     );
   }
@@ -234,12 +238,13 @@ class MovieCard extends StatelessWidget {
                 height: 150,
                 width: double.infinity,
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
                   child: Image.network(
                     movie.posterUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
-                        Image.asset('assets/placeholder.png'),
+                        Image.asset('assets/images/placeholder.png'),
                   ),
                 ),
               ),
