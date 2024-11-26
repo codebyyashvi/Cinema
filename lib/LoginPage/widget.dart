@@ -3,6 +3,7 @@ import 'package:cinema/main.dart';
 import 'package:cinema/LoginPage/loginregisterpage.dart'; // Correct import path
 import 'package:flutter/material.dart';
 
+
 class WidgetTree extends StatefulWidget {
   const WidgetTree({Key? key}) : super(key: key);
 

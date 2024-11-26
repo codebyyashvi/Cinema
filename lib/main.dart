@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cinema/CInemaList/CinemaLists.dart';
 import 'package:flutter/material.dart';
 import 'package:cinema/CinemaHall/CinemaHall.dart';
 import 'package:cinema/ProfilePage/profile_page.dart';
@@ -218,14 +219,7 @@ class MovieCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => Cinemahall(
-              Platinum: 40,
-              Gold: 20,
-              Silver: 20,
-              PlatinumPrize: 500,
-              GoldPrize: 250,
-              SilverPrize: 125,
-            ),
+            builder: (context) => CinemaListPage()
           ),
         );
       },
