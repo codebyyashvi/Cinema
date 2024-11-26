@@ -39,16 +39,18 @@ class _CinemaListPageState extends State<CinemaListPage> {
   TextEditingController locationController = TextEditingController();
   bool isLoading = false;
 
+  // Function to fetch cinemas by city
   Future<void> fetchCinemasByCity(String cityName) async {
     setState(() {
       isLoading = true;
     });
 
     try {
+      final cityNameEncoded = Uri.encodeComponent(cityName);
       final overpassUrl = 'https://overpass-api.de/api/interpreter';
       final query = '''
         [out:json];
-        area[name="$cityName"][boundary=administrative];
+        area[name="$cityNameEncoded"][boundary=administrative];
         node(area)["amenity"="cinema"];
         out body;
       ''';
@@ -60,17 +62,23 @@ class _CinemaListPageState extends State<CinemaListPage> {
 
       if (overpassResponse.statusCode == 200) {
         final overpassData = json.decode(overpassResponse.body);
-        final elements = overpassData['elements'] as List;
+        print('Overpass response: $overpassData');
+        final elements = overpassData['elements'] as List? ?? [];
 
         setState(() {
-          cinemaList =
-              elements.map((cinema) => Cinema.fromJson(cinema)).toList();
+          cinemaList = elements.map((cinema) => Cinema.fromJson(cinema)).toList();
         });
       } else {
         print('Error fetching cinemas: ${overpassResponse.statusCode}');
+        setState(() {
+          cinemaList = [];
+        });
       }
     } catch (e) {
       print('Error: $e');
+      setState(() {
+        cinemaList = [];
+      });
     }
 
     setState(() {
@@ -152,60 +160,67 @@ class _CinemaListPageState extends State<CinemaListPage> {
             // Loading indicator or Cinema list
             isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
-                    ),
-                  )
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+              ),
+            )
                 : Expanded(
-                    child: cinemaList.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No cinemas found. Try a different city.',
-                              style:
-                                  TextStyle(fontSize: 16, color: Colors.grey),
+              child: cinemaList.isEmpty
+                  ? const Center(
+                child: Text(
+                  'No cinemas found. Try a different city.',
+                  style:
+                  TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              )
+                  : ListView.builder(
+                itemCount: cinemaList.length,
+                itemBuilder: (context, index) {
+                  final cinema = cinemaList[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    elevation: 5,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    color: Colors.blueAccent,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(16),
+                      title: Text(
+                        cinema.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Coordinates: (${cinema.latitude}, ${cinema.longitude})',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => Cinemahall(
+                              Platinum: 40,
+                              Gold: 20,
+                              Silver: 20,
+                              PlatinumPrize: 500,
+                              GoldPrize: 250,
+                              SilverPrize: 125,
                             ),
-                          )
-                        : ListView.builder(
-                            itemCount: cinemaList.length,
-                            itemBuilder: (context, index) {
-                              final cinema = cinemaList[index];
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 8),
-                                elevation: 5,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                color: Colors.blueAccent,
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.all(16),
-                                  title: Text(
-                                    cinema.name,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => Cinemahall(
-                                          Platinum: 40,
-                                          Gold: 20,
-                                          Silver: 20,
-                                          PlatinumPrize: 500,
-                                          GoldPrize: 250,
-                                          SilverPrize: 125,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              );
-                            },
                           ),
-                  ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
